@@ -732,6 +732,19 @@ impl AccountChecker {
             }
         }
 
+        // Twitter/X: Special handling - returns 200 with SPA shell, username in URL path indicates account exists
+        // This check must happen before site-specific and SPA detection
+        if (url_lower.contains("twitter.com") || final_url_lower.contains("twitter.com") ||
+            url_lower.contains("x.com") || final_url_lower.contains("x.com")) &&
+           status.as_u16() == 200 {
+            // Twitter/X: If username is in the URL path, account exists
+            // Twitter/X is an SPA and doesn't always include username in initial HTML
+            if final_url_lower.contains(&format!("/{}", username_lower)) ||
+               url_lower.contains(&format!("/{}", username_lower)) {
+                return CheckResult::Found;
+            }
+        }
+        
         // Site-specific checks before general detection
         // These are more aggressive and site-aware
         let site_specific_result = self.check_site_specific(url, &body_text, &body_lower, username, final_url.as_str(), status.as_u16());
@@ -803,9 +816,17 @@ impl AccountChecker {
                     
                     let username_lower = username.to_lowercase();
                     
-                    // For SPAs: require username in title/meta tags for valid profiles
-                    // Non-existent users in SPAs won't have username in SEO tags
-                    if is_spa_shell && final_url == url {
+                    // Twitter/X: Returns 200 with SPA shell, but username is in URL path, not always in initial HTML
+                    // Twitter/X accounts exist if URL path contains username (even if not in initial HTML)
+                    if (final_url_lower.contains("twitter.com") || url_lower.contains("twitter.com") ||
+                        final_url_lower.contains("x.com") || url_lower.contains("x.com")) &&
+                       final_url_lower.contains(&format!("/{}", username_lower)) {
+                        // Twitter/X: If username is in the URL path, account likely exists
+                        // Twitter/X doesn't always include username in initial HTML for SPAs
+                        CheckResult::Found
+                    } else if is_spa_shell && final_url == url {
+                        // For other SPAs: require username in title/meta tags for valid profiles
+                        // Non-existent users in SPAs won't have username in SEO tags
                         // Extract title to check if username is there
                         let has_username_in_title = if let (Some(title_start), Some(title_end)) = 
                             (body_lower.find("<title>"), body_lower.find("</title>")) {
@@ -859,13 +880,42 @@ impl AccountChecker {
             }
             404 => CheckResult::NotFound,
              403 => {
-                // 403 might mean account exists but is private, or account doesn't exist
-                // Check body for not found messages
-                if self.contains_not_found_message(&body_lower, false) {
-                    CheckResult::NotFound
+                // 403 might mean account exists but is private, or account doesn't exist, or anti-bot protection
+                // Twitter/X: Returns 403 for all requests due to anti-bot protection, but we can still check if username is in HTML
+                if url_lower.contains("twitter.com") || url_lower.contains("x.com") {
+                    // Twitter/X shows username in title or meta tags even with 403
+                    // Check if username appears in title or og:title - valid profiles have it even with 403
+                    let title_has_username = if let (Some(title_start), Some(title_end)) = 
+                        (body_lower.find("<title>"), body_lower.find("</title>")) {
+                        if title_start + 7 < title_end {
+                            body_lower[title_start + 7..title_end].contains(&username_lower)
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+                    
+                    let username_in_og_title = (body_lower.contains("property=\"og:title\"") || 
+                                               body_lower.contains("property='og:title'")) &&
+                                              body_lower.contains(&username_lower);
+                    
+                    // If username is in title or og:title, account exists (even with 403 blocking)
+                    if title_has_username || username_in_og_title || body_lower.contains(&format!("/{}</", username_lower)) {
+                        CheckResult::Found
+                    } else {
+                        // No username found - might not exist, but Twitter blocks all requests so we can't be sure
+                        // Default to Found since 403 on Twitter usually means anti-bot, not missing account
+                        CheckResult::Found
+                    }
                 } else {
-                    // Likely private/exists but blocked
-                    CheckResult::Found
+                    // For other sites, check body for not found messages
+                    if self.contains_not_found_message(&body_lower, false) {
+                        CheckResult::NotFound
+                    } else {
+                        // Likely private/exists but blocked
+                        CheckResult::Found
+                    }
                 }
             }
             302 | 301 | 307 | 308 => {
