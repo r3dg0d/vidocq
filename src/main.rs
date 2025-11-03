@@ -170,7 +170,7 @@ fn output_human_readable(
 
     // Summary
     println!("\n{}", "=".repeat(80).bright_white());
-    println!("{}", format!("Summary:").bright_white().bold());
+    println!("{}", "Summary:".bright_white().bold());
     println!("  {}: {}", "Found".bright_green(), found.len().to_string().bright_green().bold());
     println!("  {}: {}", "Not Found".bright_yellow(), not_found.len().to_string().bright_yellow());
     println!("  {}: {}", "Errors".bright_red(), errors.len().to_string().bright_red());

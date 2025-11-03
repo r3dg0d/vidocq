@@ -271,14 +271,12 @@ impl AccountChecker {
         }
         
         // AngelList/Wellfound: Check if redirected to wellfound.com and it's blocked/404
-        if url_lower.contains("angel.co") {
-            if final_url_lower.contains("wellfound.com") {
-                // If redirected to wellfound and it's 403 (Cloudflare) or body is empty/generic, not found
-                if status_code == 403 || 
-                   body_lower.contains("please enable js") ||
-                   body_lower.len() < 1000 {
-                    return Some(CheckResult::NotFound);
-                }
+        if url_lower.contains("angel.co") && final_url_lower.contains("wellfound.com") {
+            // If redirected to wellfound and it's 403 (Cloudflare) or body is empty/generic, not found
+            if status_code == 403 || 
+               body_lower.contains("please enable js") ||
+               body_lower.len() < 1000 {
+                return Some(CheckResult::NotFound);
             }
         }
         
@@ -531,9 +529,9 @@ impl AccountChecker {
                 // Handle DNS errors and SSL errors more gracefully
                 let error_msg = e.to_string();
                 if error_msg.contains("dns error") || error_msg.contains("failed to lookup address") {
-                    return CheckResult::Error(format!("DNS error: Site may be down or domain changed"));
+                    return CheckResult::Error("DNS error: Site may be down or domain changed".to_string());
                 } else if error_msg.contains("certificate verify failed") || error_msg.contains("SSL") {
-                    return CheckResult::Error(format!("SSL certificate error: Site may have certificate issues"));
+                    return CheckResult::Error("SSL certificate error: Site may have certificate issues".to_string());
                 }
                 return CheckResult::Error(format!("Network error: {}", e));
             }
@@ -598,7 +596,7 @@ impl AccountChecker {
             let final_path: Vec<&str> = final_url.split('/').skip(3).collect();
             
             // If URL structure changed significantly (different number of path segments), likely redirect
-            if url_path.len() != final_path.len() && url_path.len() > 0 {
+            if url_path.len() != final_path.len() && !url_path.is_empty() {
                 // Check if username is missing from final URL path (not in any path segment)
                 let final_path_contains_username = final_path.iter().any(|segment| segment.contains(username));
                 let url_path_contains_username = url_path.iter().any(|segment| segment.contains(username));
@@ -621,7 +619,7 @@ impl AccountChecker {
             // Extract domains to compare
             let original_domain = url.split('/').nth(2).unwrap_or("");
             let final_domain = final_url.split('/').nth(2).unwrap_or("");
-            if original_domain != final_domain && original_domain != "" && final_domain != "" {
+            if original_domain != final_domain && !original_domain.is_empty() && !final_domain.is_empty() {
                 // Domain changed - check if it's a known redirect pattern (like angel.co -> wellfound.com)
                 // and if the final URL doesn't contain username, it's likely 404
                 if !final_url_lower.contains(&username_lower) {
@@ -692,7 +690,7 @@ impl AccountChecker {
                 for pattern in &redirect_patterns {
                     if let Some(pos) = body_lower.find(pattern) {
                         let after_pattern = &body_lower[pos + pattern.len()..];
-                        if let Some(end) = after_pattern.find(|c| c == '"' || c == '\'' || c == ';') {
+                        if let Some(end) = after_pattern.find(['"', '\'', ';']) {
                             let redirect_target = &after_pattern[..end];
                             // If redirect doesn't contain username, it's likely a 404 redirect
                             if !redirect_target.contains(&username_lower) && 
@@ -761,19 +759,18 @@ impl AccountChecker {
                     return CheckResult::NotFound;
                 }
                 // For other sites, 503 is a server error
-                return CheckResult::Error("Service temporarily unavailable (503)".to_string());
+                CheckResult::Error("Service temporarily unavailable (503)".to_string())
             },
             200 => {
                 // Even with 200 status, check if it's actually a 404 page
                 // Many sites return 200 with a 404 page content
                 // Special check for Wikipedia: redlink means page doesn't exist
-                if final_url_lower.contains("wikipedia.org") {
-                    if body_lower.contains("page does not exist") || 
-                       body_lower.contains("redlink") ||
-                       body_lower.contains("\"wgArticleId\":0") ||
-                       body_lower.contains("\"wgCurRevisionId\":0") {
-                        return CheckResult::NotFound;
-                    }
+                if final_url_lower.contains("wikipedia.org") &&
+                   (body_lower.contains("page does not exist") || 
+                    body_lower.contains("redlink") ||
+                    body_lower.contains("\"wgArticleId\":0") ||
+                    body_lower.contains("\"wgCurRevisionId\":0")) {
+                    return CheckResult::NotFound;
                 }
                 
                 // Special check for sites that return 200 but with empty/placeholder content
@@ -918,30 +915,25 @@ impl AccountChecker {
                     }
                 }
             }
-            302 | 301 | 307 | 308 => {
-                // Redirect might indicate account exists or doesn't exist
-                // Try to check the final location if possible
-                CheckResult::Found
-            }
             400 => {
                 // Bad request - might be invalid username format or requires auth
                 if self.contains_not_found_message(&body_lower, false) {
                     CheckResult::NotFound
                 } else {
-                    CheckResult::Error(format!("HTTP 400 Bad Request (possibly requires authentication)"))
+                    CheckResult::Error("HTTP 400 Bad Request (possibly requires authentication)".to_string())
                 }
             }
             429 => {
                 // Rate limited - return error but don't fail completely
-                CheckResult::Error(format!("HTTP 429 Rate Limited (try again later)"))
+                CheckResult::Error("HTTP 429 Rate Limited (try again later)".to_string())
             }
-            520 | 521 | 522 | 523 | 524 => {
+            520..=524 => {
                 // Cloudflare errors - site might be down
                 CheckResult::Error(format!("HTTP {} Cloudflare Error (site may be temporarily unavailable)", status))
             }
             999 => {
                 // LinkedIn's anti-bot protection
-                CheckResult::Error(format!("HTTP 999 Anti-bot protection (requires authentication)"))
+                CheckResult::Error("HTTP 999 Anti-bot protection (requires authentication)".to_string())
             }
             _ => {
                 // Check body for not found messages even with other status codes
