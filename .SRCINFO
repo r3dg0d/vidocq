@@ -5,11 +5,10 @@ pkgbase = vidocq-bin
 	url = https://github.com/r3dg0d/vidocq
 	arch = x86_64
 	license = MIT
-	depends = glibc
 	makedepends = rust
 	makedepends = cargo
-	source = https://github.com/YOUR_USERNAME/vidocq/archive/v0.1.0.tar.gz
+	depends = glibc
+	source = https://github.com/r3dg0d/vidocq/archive/refs/tags/v0.1.0.tar.gz
 	sha256sums = SKIP
 
 pkgname = vidocq-bin
-

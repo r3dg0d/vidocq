@@ -110,13 +110,15 @@ impl AccountChecker {
         };
 
         let status = response.status();
-        let body = response.text().await.unwrap_or_default().to_lowercase();
+        let body_text = response.text().await.unwrap_or_default();
+        let body_lower = body_text.to_lowercase();
 
         // Check status code
         match status.as_u16() {
             200 => {
-                // Account exists if status is 200 and doesn't contain "not found" messages
-                if self.contains_not_found_message(&body) {
+                // Even with 200 status, check if it's actually a 404 page
+                // Many sites return 200 with a 404 page content
+                if self.contains_not_found_message(&body_lower) {
                     CheckResult::NotFound
                 } else {
                     CheckResult::Found
@@ -126,7 +128,7 @@ impl AccountChecker {
             403 => {
                 // 403 might mean account exists but is private, or account doesn't exist
                 // Check body for not found messages
-                if self.contains_not_found_message(&body) {
+                if self.contains_not_found_message(&body_lower) {
                     CheckResult::NotFound
                 } else {
                     // Likely private/exists but blocked
@@ -140,7 +142,7 @@ impl AccountChecker {
             }
             400 => {
                 // Bad request - might be invalid username format or requires auth
-                if self.contains_not_found_message(&body) {
+                if self.contains_not_found_message(&body_lower) {
                     CheckResult::NotFound
                 } else {
                     CheckResult::Error(format!("HTTP 400 Bad Request (possibly requires authentication)"))
@@ -160,7 +162,7 @@ impl AccountChecker {
             }
             _ => {
                 // Check body for not found messages even with other status codes
-                if self.contains_not_found_message(&body) {
+                if self.contains_not_found_message(&body_lower) {
                     CheckResult::NotFound
                 } else if status.is_success() {
                     CheckResult::Found
@@ -177,24 +179,36 @@ impl AccountChecker {
     }
 
     fn contains_not_found_message(&self, body: &str) -> bool {
+        let body_lower = body.to_lowercase();
+        let body_len = body.len();
+        
+        // Check for common 404 page indicators in HTML
         let not_found_patterns = vec![
+            // Direct 404 messages
+            "404",
+            "page not found",
+            "404 error",
+            "error 404",
+            "404 page",
+            "not found (404)",
+            "404 - page not found",
+            "404 - not found",
+            "error 404 - page not found",
+            "http 404",
+            "http error 404",
+            
+            // Account/user specific
             "account not found",
             "user not found",
             "error: user not found",
             "profile not found",
-            "page not found",
-            "404",
             "user does not exist",
             "account does not exist",
             "this page doesn't exist",
             "this profile doesn't exist",
-            "the page you requested was not found",
-            "sorry, this page isn't available",
-            "the link you followed may be broken",
             "couldn't find this account",
             "this account doesn't exist",
             "no such user",
-            "user does not exist",
             "invalid username",
             "username does not exist",
             "this user does not exist",
@@ -213,10 +227,56 @@ impl AccountChecker {
             "not a registered user",
             "user not registered",
             "no account associated",
+            
+            // Common 404 page content
+            "the page you requested was not found",
+            "sorry, this page isn't available",
+            "the link you followed may be broken",
+            "the requested url was not found",
+            "the requested page cannot be found",
+            "the page you're looking for cannot be found",
+            "we couldn't find that page",
+            "we can't find that page",
+            "unfortunately the page you were looking for",
+            "the page you are looking for does not exist",
+            "sorry, we couldn't find that",
+            "page you're looking for doesn't exist",
+            
+            // HTML title/common page titles
+            "404 - not found",
+            "<title>404",
+            "<title>page not found",
+            "<title>not found",
+            "<title>error 404",
+            
+            // Redirects to 404 pages
+            "go back to homepage",
+            "return to home",
+            "back to home page",
+            "go to homepage",
+            "take me home",
         ];
 
-        let body_lower = body.to_lowercase();
-        not_found_patterns.iter().any(|pattern| body_lower.contains(pattern))
+        // Check for patterns
+        if not_found_patterns.iter().any(|pattern| body_lower.contains(pattern)) {
+            return true;
+        }
+        
+        // Check for common 404 page structures (e.g., title contains 404 and body has "not found")
+        let has_404_in_title = body_lower.contains("<title>") && 
+                               body_lower.matches("404").count() > 0 &&
+                               (body_lower.matches("404").count() > 1 || 
+                                body_lower.contains("not found") ||
+                                body_lower.contains("error"));
+        
+        // Check if page content is suspiciously short (typical of 404 pages)
+        // Many 404 pages have minimal content
+        let is_short_404_page = body_len < 500 && 
+                                (body_lower.contains("404") || 
+                                 body_lower.contains("not found") ||
+                                 body_lower.contains("page not"));
+        
+        has_404_in_title || is_short_404_page
     }
 
     async fn check_discord_username(&self, username: &str) -> SiteResult {
