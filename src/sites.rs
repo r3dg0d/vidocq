@@ -135,7 +135,6 @@ pub fn get_sites() -> Vec<Site> {
         // Spotify Artist removed - uses IDs, not usernames
         
         // More Professional
-        Site { name: "Angel.co".to_string(), url: "https://angel.co/{}".to_string(), category: "Professional".to_string() },
         Site { name: "Coursera".to_string(), url: "https://www.coursera.org/user/{}".to_string(), category: "Education".to_string() },
         Site { name: "Udemy".to_string(), url: "https://www.udemy.com/user/{}/".to_string(), category: "Education".to_string() },
         Site { name: "edX".to_string(), url: "https://www.edx.org/user/{}".to_string(), category: "Education".to_string() },
