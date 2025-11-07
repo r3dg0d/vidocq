@@ -1,11 +1,11 @@
 # Vidocq - Advanced OSINT Username Search Tool
 
-Vidocq is a powerful OSINT (Open Source Intelligence) tool written in Rust that searches for a username across 100+ social media platforms, forums, and websites to determine if an account exists. Named after Eugène François Vidocq, the first private detective and a pioneer in criminal investigation.
+Vidocq is a powerful OSINT (Open Source Intelligence) tool written in Rust that searches for a username across 450+ social media platforms, forums, and websites to determine if an account exists. Named after Eugène François Vidocq, the first private detective and a pioneer in criminal investigation.
 
 ## Features
 
-- 🔍 **100+ Platforms**: Searches across major social networks, forums, development platforms, gaming sites, and more
-- ✅ **Zero False Positives**: Advanced site-specific detection algorithms eliminate false positives across all platforms
+- 🔍 **450+ Platforms**: Searches across major social networks, forums, development platforms, gaming sites, and more
+- ✅ **Advanced Detection**: Sophisticated site-specific detection algorithms minimize false positives across all platforms
 - ⚡ **Smart Detection**: Intelligently detects account existence by checking URL redirects, HTTP status codes, JavaScript redirects, and parsing response bodies for "not found" messages
 - 📊 **Detailed Output**: Beautiful colored output with categories and statistics
 - 🔧 **Flexible**: JSON output mode, verbose mode, and found-only filtering
@@ -13,7 +13,7 @@ Vidocq is a powerful OSINT (Open Source Intelligence) tool written in Rust that 
 
 ## Advanced False Positive Detection
 
-Vidocq employs sophisticated site-specific detection algorithms to achieve **zero false positives**:
+Vidocq employs sophisticated site-specific detection algorithms to minimize false positives:
 
 - **URL Redirect Analysis**: Detects when sites redirect invalid usernames to error pages or generic pages
 - **JavaScript Redirect Detection**: Parses HTML for JavaScript redirects (`window.location`, `location.href`, `meta refresh`) that indicate 404 pages
@@ -21,7 +21,7 @@ Vidocq employs sophisticated site-specific detection algorithms to achieve **zer
 - **SPA Detection**: Identifies Single Page Applications and validates username presence in SEO metadata (og:title, title tags)
 - **Platform-Specific Logic**: Custom detection rules for platforms like eBay (security pages), TopCoder (meta refresh), Instagram (SPA validation), and more
 
-**Result**: Tested with non-existent usernames across all platforms, Vidocq achieves **zero false positives** while maintaining accurate detection of legitimate accounts.
+**Note**: While Vidocq uses advanced detection algorithms to minimize false positives, some false positives may still occur due to platform-specific behaviors, API changes, or edge cases. Always verify results manually when accuracy is critical.
 
 ## Performance & Detection Method
 
@@ -41,7 +41,7 @@ These checks are **very fast** (~0.1-0.3 seconds per site) and run concurrently,
 
 Compared to legacy tools like Sherlock (Python-based, rarely updated):
 
-- **Zero False Positives**: Advanced detection algorithms eliminate false positives completely
+- **Minimal False Positives**: Advanced detection algorithms significantly reduce false positives
 - **Faster**: HTTP-based detection is 5-10x faster than tools using headless browsers
 - **Better Accuracy**: Site-specific detection catches edge cases that generic checks miss
 - **Lower Memory Usage**: Rust's zero-cost abstractions mean minimal memory footprint (~5-10MB)
@@ -49,7 +49,7 @@ Compared to legacy tools like Sherlock (Python-based, rarely updated):
 - **Active Maintenance**: Regular updates ensure compatibility with changing platform APIs
 - **No Dependency Hell**: Single compiled binary, no Python version conflicts
 
-**Note**: A full scan of 100+ platforms typically takes **3-5 seconds** using optimized HTTP-based detection, providing both speed and accuracy without the overhead of headless browsers.
+**Note**: A full scan of 450+ platforms typically takes **30-60 seconds** using optimized HTTP-based detection, providing both speed and accuracy without the overhead of headless browsers.
 
 ## Installation
 
@@ -179,6 +179,7 @@ Vidocq solves these issues by:
 - Private accounts may not be detectable
 - Some platforms have changed their URL structures
 - Discord username checking is limited due to their ID-based system
+- **False Positives**: Some false positives may occur due to platform-specific behaviors, API changes, or edge cases. Always verify results manually when accuracy is critical
 
 ## Legal & Ethical Considerations
 
